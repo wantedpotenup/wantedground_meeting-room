@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>회의실 예약</title>
+<style>
+  :root{
+    --ink:#1f2a24;
+    --paper:#ffffff;
+    --card:#ffffff;
+    --line:#dedad0;
+    --line-strong:#c7c2b4;
+    --muted:#8a8578;
+    --accent:#1a56db;
+    --accent-soft:#eaf1fd;
+    --danger:#b3492f;
+    --notice-blue:#1a56db;
+    --notice-blue-bg:#eaf1fd;
+    --r1:#2f5d50; --r1-bg:#e3ede9;
+    --r2:#8a5a2f; --r2-bg:#f3e6d8;
+    --r3:#4a5a8a; --r3-bg:#e4e7f3;
+    --r4:#8a3f5a; --r4-bg:#f3e0e6;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  .app{
+    max-width:1180px;
+    margin:0 auto;
+    padding:32px 24px 80px;
+  }
+  .brand-bar{
+    display:flex;
+    justify-content:flex-end;
+    margin-bottom:12px;
+  }
+  .wg-logo{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-weight:700;
+    font-size:17px;
+    letter-spacing:0.02em;
+    color:#1a1a1a;
+  }
+  .wg-arrow{
+    flex-shrink:0;
+  }
+  .top{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom:24px;
+    border-bottom:1px solid var(--line-strong);
+    padding-bottom:16px;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  .top h1{
+    font-size:22px;
+    font-weight:700;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  .datebar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .datebar button{
+    width:32px;height:32px;
+    border:1px solid var(--line-strong);
+    background:var(--card);
+    border-radius:6px;
+    cursor:pointer;
+    font-size:15px;
+    color:var(--ink);
+  }
+  .datebar button:hover{background:var(--accent-soft);}
+  .datebar input[type=date]{
+    border:1px solid var(--line-strong);
+    background:var(--card);
+    border-radius:6px;
+    padding:6px 10px;
+    font-size:14px;
+    color:var(--ink);
+    font-family:inherit;
+  }
+  .datebar .today-btn{
+    width:auto;
+    padding:0 14px;
+    font-size:13px;
+    font-weight:600;
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+    border-radius:999px;
+  }
+  .datebar .today-btn:hover{
+    background:#1547b8;
+    opacity:1;
+  }
+  .notice{
+    background:var(--notice-blue-bg);
+    border:1px solid var(--line);
+    border-left:3px solid var(--notice-blue);
+    border-radius:8px;
+    padding:14px 16px;
+    margin-bottom:20px;
+    box-shadow:0 1px 3px rgba(20,30,60,0.05);
+  }
+  .notice h3{
+    font-size:13px;
+    margin:0 0 8px;
+    color:var(--notice-blue);
+  }
+  .notice ul{
+    margin:0;
+    padding-left:18px;
+    font-size:12.5px;
+    color:var(--ink);
+    line-height:1.7;
+  }
+  .board-wrap{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:10px;
+    display:flex;
+    overflow:hidden;
+    box-shadow:0 1px 3px rgba(20,30,60,0.06), 0 6px 16px rgba(20,30,60,0.05);
+  }
+  .tl-names{
+    flex:0 0 150px;
+    display:flex;
+    flex-direction:column;
+    border-right:1px solid var(--line-strong);
+    background:var(--card);
+  }
+  .tl-name-header{
+    height:36px;
+    background:var(--paper);
+    border-bottom:1px solid var(--line-strong);
+  }
+  .tl-name-cell{
+    height:64px;
+    display:flex;
+    align-items:center;
+    padding:0 14px;
+    font-size:13px;
+    font-weight:700;
+    border-bottom:1px solid var(--line-strong);
+  }
+  .tl-scroll{
+    flex:1;
+    overflow-x:auto;
+    overflow-y:hidden;
+    min-width:0;
+  }
+  .tl-hours{
+    position:relative;
+    height:36px;
+    border-bottom:1px solid var(--line-strong);
+  }
+  .tl-hour-label{
+    position:absolute;
+    top:0;
+    bottom:0;
+    display:flex;
+    align-items:center;
+    font-size:11px;
+    font-weight:600;
+    color:var(--ink);
+    padding-left:6px;
+    white-space:nowrap;
+  }
+  .tl-track{
+    position:relative;
+    height:64px;
+    cursor:crosshair;
+    border-bottom:1px solid var(--line-strong);
+    transition:background-color 0.12s ease;
+    background-image:
+      repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px 120px),
+      repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 60px);
+  }
+  .tl-track:hover{
+    background-color:var(--accent-soft);
+  }
+  .booking{
+    position:absolute;
+    top:6px;
+    bottom:6px;
+    border-left:1px solid var(--line-strong);
+    border-top:1px solid var(--line);
+    border-radius:6px;
+    padding:5px 8px;
+    cursor:pointer;
+    overflow:hidden;
+    font-size:12px;
+  }
+  .booking .b-name{font-weight:700;}
+  .booking .b-time{font-size:10px;opacity:0.65;margin-top:2px;}
+
+  .overlay{
+    position:fixed;inset:0;
+    background:rgba(31,42,36,0.35);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:50;
+    padding:20px;
+  }
+  .overlay.show{display:flex;}
+  .modal{
+    background:var(--card);
+    border-radius:12px;
+    width:100%;
+    max-width:360px;
+    padding:22px;
+    border:1px solid var(--line);
+    box-shadow:0 10px 30px rgba(20,30,60,0.16);
+  }
+  .modal h2{
+    font-size:16px;
+    margin:0 0 4px;
+  }
+  .modal .meta{
+    font-size:12px;
+    color:var(--muted);
+    margin-bottom:16px;
+  }
+  .field{margin-bottom:12px;}
+  .field label{
+    display:block;
+    font-size:12px;
+    color:var(--muted);
+    margin-bottom:5px;
+  }
+  .field input, .field select{
+    width:100%;
+    padding:8px 10px;
+    border:1px solid var(--line-strong);
+    border-radius:6px;
+    font-size:14px;
+    font-family:inherit;
+    background:var(--paper);
+    color:var(--ink);
+  }
+  .row2{
+    display:flex;
+    gap:8px;
+  }
+  .row2 .field{flex:1;}
+  .modal-actions{
+    display:flex;
+    gap:8px;
+    margin-top:18px;
+  }
+  .btn{
+    flex:1;
+    padding:9px 0;
+    border-radius:6px;
+    border:1px solid var(--line-strong);
+    background:var(--card);
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    color:var(--ink);
+  }
+  .btn.primary{
+    background:var(--accent);
+    border-color:var(--accent);
+    color:#fff;
+  }
+  .btn.danger{
+    background:var(--danger);
+    border-color:var(--danger);
+    color:#fff;
+  }
+  .btn:hover{opacity:0.9;}
+  .err{
+    font-size:12px;
+    color:var(--danger);
+    margin-top:-4px;
+    margin-bottom:10px;
+    display:none;
+  }
+  .empty-note{
+    text-align:center;
+    padding:14px;
+    font-size:12px;
+    color:var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="brand-bar">
+    <div class="wg-logo" role="img" aria-label="WANTED GROUND 로고">
+      <span>WANTED GROUND</span>
+      <svg class="wg-arrow" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path d="M6 18 L18 6 M18 6 H9 M18 6 V15" fill="none" stroke="#e8622c" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="top">
+    <div>
+      <h1>회의실 예약</h1>
+    </div>
+    <div class="datebar">
+      <button id="prevDay" aria-label="이전 날">‹</button>
+      <input type="date" id="datePicker">
+      <button id="nextDay" aria-label="다음 날">›</button>
+      <button class="today-btn" id="todayBtn">오늘</button>
+    </div>
+  </div>
+
+  <div class="notice">
+    <h3>회의실 이용 시 주의사항</h3>
+    <ul>
+      <li>선착순 예약제로 운영됩니다.</li>
+      <li>1일 최대 이용 시간은 2시간입니다. (더 많은 팀이 이용할 수 있도록 양해 부탁드립니다.)</li>
+      <li>동일 팀이 예약자만 바꿔 번갈아 이용하는 행위는 금지입니다.</li>
+      <li>퇴실 시간은 반드시 준수해주세요. 다음 이용 팀을 위한 배려입니다.</li>
+      <li>이용 후에는 원상태로 정리해주세요.</li>
+      <li>타인의 예약을 삭제하지 않도록 유의해 주세요.</li>
+    </ul>
+  </div>
+
+  <div class="board-wrap" id="boardWrap"></div>
+  <div class="empty-note">06:00 ~ 24:00 · 빈 칸을 클릭한 뒤 원하는 시작/종료 시간을 직접 입력해서 예약할 수 있어요</div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal" id="modalBox"></div>
+</div>
+
+<script>
+const ROOMS = [
+  {id:'r1', name:'멘토링룸(3층)', color:'r1', bg:'r1-bg'},
+  {id:'r2', name:'멘토링룸(4층)', color:'r2', bg:'r2-bg'},
+  {id:'r3', name:'지하(스튜디오)', color:'r3', bg:'r3-bg'},
+  {id:'r4', name:'지하(스크린 사용)', color:'r4', bg:'r4-bg'},
+];
+
+const START_HOUR = 6;
+const END_HOUR = 24;
+const PX_PER_MIN = 2; // 1분 = 2px
+const TOTAL_MIN = (END_HOUR - START_HOUR) * 60;
+const TIMELINE_WIDTH = TOTAL_MIN * PX_PER_MIN;
+const MAX_DURATION_MIN = 120; // 1일 최대 이용 시간(주의사항 기준)
+const SNAP_MIN = 10; // 클릭 시 추천 시간 반올림 단위
+
+function minToTime(min){
+  const h = Math.floor(min/60), m = min%60;
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+}
+function timeToMin(t){
+  const [h,m] = t.split(':').map(Number);
+  return h*60+m;
+}
+function parseTimeInput(str){
+  const m = str.match(/^([0-9]{1,2}):([0-9]{2})$/);
+  if(!m) return null;
+  const h = parseInt(m[1]), min = parseInt(m[2]);
+  if(min<0 || min>59) return null;
+  if(h<0 || h>24) return null;
+  if(h===24 && min!==0) return null;
+  return h*60+min;
+}
+function fmtDate(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function isWeekend(d){
+  const day = d.getDay();
+  return day===0 || day===6;
+}
+
+const SUPABASE_URL = 'https://qfzzofauhagkvntypcir.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFmenpvZmF1aGFna3ZudHlwY2lyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwODU3NjQsImV4cCI6MjA5ODY2MTc2NH0.rigMUvh8a4rwLAiZ4CtnfSQVJWMCLts4ZteWfdwuqfs';
+
+async function sbFetch(path, options={}){
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method: options.method || 'GET',
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': options.prefer || 'return=representation',
+    },
+    body: options.body
+  });
+  if(!res.ok){
+    const text = await res.text().catch(()=> '');
+    throw new Error(`Supabase 요청 실패 (${res.status}): ${text}`);
+  }
+  if(res.status===204) return null;
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+let currentDate = new Date();
+let bookings = []; // {id, roomId, startMin, endMin, name, pin}
+
+const datePicker = document.getElementById('datePicker');
+const boardWrap = document.getElementById('boardWrap');
+const overlay = document.getElementById('overlay');
+const modalBox = document.getElementById('modalBox');
+
+async function loadBookings(){
+  renderBoard();
+  const dateStr = fmtDate(currentDate);
+  try{
+    const rows = await sbFetch(`bookings?date=eq.${dateStr}&select=*`, {method:'GET'});
+    bookings = (rows||[]).map(r=>({
+      id: r.id,
+      roomId: r.room_id,
+      startMin: r.start_min,
+      endMin: r.end_min,
+      name: r.name,
+      pin: r.pin || ''
+    }));
+  }catch(e){
+    bookings = [];
+    console.error(e);
+    alert('예약 정보를 불러오지 못했어요. 인터넷 연결을 확인해주세요.');
+  }
+  renderBoard();
+}
+
+async function insertBookingRemote(booking){
+  const dateStr = fmtDate(currentDate);
+  const payload = {
+    id: booking.id,
+    date: dateStr,
+    room_id: booking.roomId,
+    start_min: booking.startMin,
+    end_min: booking.endMin,
+    name: booking.name,
+    pin: booking.pin || null
+  };
+  await sbFetch('bookings', {method:'POST', body: JSON.stringify(payload)});
+}
+
+async function deleteBookingRemote(id){
+  await sbFetch(`bookings?id=eq.${id}`, {method:'DELETE', prefer:'return=minimal'});
+}
+
+function escapeHtml(s){
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+function renderBoard(){
+  if(isWeekend(currentDate)){
+    boardWrap.innerHTML = `<div style="padding:56px 20px;text-align:center;color:var(--muted);font-size:14px;width:100%;">
+      주말에는 회의실을 예약할 수 없습니다. 평일을 선택해주세요.
+    </div>`;
+    return;
+  }
+
+  // 왼쪽 고정 회의실 이름 열
+  let namesHtml = `<div class="tl-name-header"></div>`;
+  ROOMS.forEach(r=>{
+    namesHtml += `<div class="tl-name-cell">${r.name}</div>`;
+  });
+
+  // 오른쪽 가로 스크롤 영역: 시간 눈금 + 회의실별 트랙
+  let hoursHtml = `<div class="tl-hours" style="width:${TIMELINE_WIDTH}px;">`;
+  for(let h=START_HOUR; h<END_HOUR; h++){
+    const left = (h-START_HOUR)*60*PX_PER_MIN;
+    hoursHtml += `<div class="tl-hour-label" style="left:${left}px;">${String(h).padStart(2,'0')}:00</div>`;
+  }
+  hoursHtml += `<div class="tl-hour-label" style="left:${TIMELINE_WIDTH}px;transform:translateX(-100%);padding-left:0;padding-right:6px;">24:00</div>`;
+  hoursHtml += `</div>`;
+
+  let tracksHtml = '';
+  ROOMS.forEach(r=>{
+    tracksHtml += `<div class="tl-track" style="width:${TIMELINE_WIDTH}px;" data-room="${r.id}">`;
+    bookings.filter(b=>b.roomId===r.id).forEach(b=>{
+      const left = (b.startMin - START_HOUR*60) * PX_PER_MIN;
+      const width = (b.endMin - b.startMin) * PX_PER_MIN;
+      tracksHtml += `<div class="booking" style="left:${left}px;width:${Math.max(width-2,40)}px;background:var(--${r.bg});color:var(--${r.color});" data-action="cancel" data-id="${b.id}">
+        <div class="b-name">${escapeHtml(b.name)}</div>
+        <div class="b-time">${minToTime(b.startMin)} - ${minToTime(b.endMin)}</div>
+      </div>`;
+    });
+    tracksHtml += `</div>`;
+  });
+
+  boardWrap.innerHTML = `
+    <div class="tl-names">${namesHtml}</div>
+    <div class="tl-scroll">${hoursHtml}${tracksHtml}</div>
+  `;
+
+  boardWrap.querySelectorAll('.tl-track').forEach(track=>{
+    track.addEventListener('click', (e)=>{
+      if(e.target.closest('.booking')) return;
+      const rect = track.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      let clickMin = START_HOUR*60 + offsetX / PX_PER_MIN;
+      clickMin = Math.round(clickMin / SNAP_MIN) * SNAP_MIN;
+      clickMin = Math.max(START_HOUR*60, Math.min(clickMin, END_HOUR*60 - 30));
+      openBookModal(track.dataset.room, clickMin);
+    });
+  });
+  boardWrap.querySelectorAll('[data-action="cancel"]').forEach(el=>{
+    el.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      openCancelModal(el.dataset.id);
+    });
+  });
+}
+
+function hasOverlap(roomId, startMin, endMin, excludeId){
+  return bookings.some(b=>{
+    if(b.roomId!==roomId) return false;
+    if(excludeId && b.id===excludeId) return false;
+    return startMin < b.endMin && endMin > b.startMin;
+  });
+}
+
+function openBookModal(roomId, suggestedStart){
+  if(isWeekend(currentDate)) return;
+  const room = ROOMS.find(r=>r.id===roomId);
+  const defaultEnd = Math.min(suggestedStart + 60, END_HOUR*60);
+  modalBox.innerHTML = `
+    <h2>${room.name} 예약</h2>
+    <div class="meta">${fmtDate(currentDate)}</div>
+    <div class="field">
+      <label for="bkName">예약자 이름</label>
+      <input id="bkName" type="text" placeholder="이름을 입력하세요" maxlength="20">
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="bkStart">시작 시간 (예: 09:20)</label>
+        <input id="bkStart" type="text" inputmode="numeric" placeholder="00:00" value="${minToTime(suggestedStart)}" maxlength="5">
+      </div>
+      <div class="field">
+        <label for="bkEnd">종료 시간 (예: 10:40)</label>
+        <input id="bkEnd" type="text" inputmode="numeric" placeholder="00:00" value="${minToTime(defaultEnd)}" maxlength="5">
+      </div>
+    </div>
+    <div class="field">
+      <label for="bkPin">취소 비밀번호 (선택, 4자리)</label>
+      <input id="bkPin" type="text" inputmode="numeric" placeholder="설정하면 취소할 때 필요해요" maxlength="4">
+    </div>
+    <div class="err" id="bkErr"></div>
+    <div class="modal-actions">
+      <button class="btn" id="bkCancel">취소</button>
+      <button class="btn primary" id="bkSubmit">예약하기</button>
+    </div>
+  `;
+  showOverlay();
+  document.getElementById('bkCancel').onclick = closeOverlay;
+  document.getElementById('bkSubmit').onclick = async ()=>{
+    const errBox = document.getElementById('bkErr');
+    errBox.style.display='none';
+    const name = document.getElementById('bkName').value.trim();
+    const startStr = document.getElementById('bkStart').value.trim();
+    const endStr = document.getElementById('bkEnd').value.trim();
+    const pin = document.getElementById('bkPin').value.trim();
+
+    if(!name){
+      errBox.textContent = '예약자 이름을 입력해주세요.';
+      errBox.style.display='block';
+      return;
+    }
+    const startMin = parseTimeInput(startStr);
+    const endMin = parseTimeInput(endStr);
+    if(startMin===null || endMin===null){
+      errBox.textContent = '시간은 00:00 ~ 24:00 형식으로 입력해주세요. (예: 09:20)';
+      errBox.style.display='block';
+      return;
+    }
+    if(endMin <= startMin){
+      errBox.textContent = '종료 시간은 시작 시간보다 늦어야 해요.';
+      errBox.style.display='block';
+      return;
+    }
+    if(startMin < START_HOUR*60 || endMin > END_HOUR*60){
+      errBox.textContent = `예약 가능 시간은 ${minToTime(START_HOUR*60)} ~ ${minToTime(END_HOUR*60)} 이에요.`;
+      errBox.style.display='block';
+      return;
+    }
+    if(endMin - startMin > MAX_DURATION_MIN){
+      errBox.textContent = '1일 최대 이용 시간은 2시간입니다.';
+      errBox.style.display='block';
+      return;
+    }
+    if(hasOverlap(roomId, startMin, endMin)){
+      errBox.textContent = '이미 예약된 시간과 겹쳐요. 다른 시간을 선택해주세요.';
+      errBox.style.display='block';
+      return;
+    }
+
+    const newBooking = {
+      id: Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+      roomId, startMin, endMin, name, pin: pin || ''
+    };
+    const submitBtn = document.getElementById('bkSubmit');
+    submitBtn.disabled = true;
+    submitBtn.textContent = '예약 중...';
+    try{
+      await insertBookingRemote(newBooking);
+      closeOverlay();
+      await loadBookings();
+    }catch(err){
+      console.error(err);
+      errBox.textContent = '저장에 실패했어요. 인터넷 연결을 확인하고 다시 시도해주세요.';
+      errBox.style.display='block';
+      submitBtn.disabled = false;
+      submitBtn.textContent = '예약하기';
+    }
+  };
+}
+
+function openCancelModal(id){
+  const b = bookings.find(x=>x.id===id);
+  if(!b) return;
+  const room = ROOMS.find(r=>r.id===b.roomId);
+  const hasPin = !!b.pin;
+  modalBox.innerHTML = `
+    <h2>예약 취소</h2>
+    <div class="meta">${room.name} · ${minToTime(b.startMin)} - ${minToTime(b.endMin)}</div>
+    <div class="field">
+      <label>예약자</label>
+      <div style="font-size:14px;">${escapeHtml(b.name)}</div>
+    </div>
+    ${hasPin ? `
+    <div class="field">
+      <label for="ccPin">취소 비밀번호</label>
+      <input id="ccPin" type="text" inputmode="numeric" placeholder="예약할 때 설정한 4자리" maxlength="4">
+    </div>
+    <div class="err" id="ccErr">비밀번호가 일치하지 않아요.</div>
+    ` : ''}
+    <div class="modal-actions">
+      <button class="btn" id="ccClose">닫기</button>
+      <button class="btn danger" id="ccDelete">예약 취소</button>
+    </div>
+  `;
+  showOverlay();
+  document.getElementById('ccClose').onclick = closeOverlay;
+  document.getElementById('ccDelete').onclick = async ()=>{
+    if(hasPin){
+      const input = document.getElementById('ccPin').value.trim();
+      if(input !== b.pin){
+        document.getElementById('ccErr').style.display='block';
+        return;
+      }
+    }
+    const deleteBtn = document.getElementById('ccDelete');
+    deleteBtn.disabled = true;
+    deleteBtn.textContent = '취소 중...';
+    try{
+      await deleteBookingRemote(id);
+      closeOverlay();
+      await loadBookings();
+    }catch(err){
+      console.error(err);
+      alert('취소에 실패했어요. 인터넷 연결을 확인하고 다시 시도해주세요.');
+      deleteBtn.disabled = false;
+      deleteBtn.textContent = '예약 취소';
+    }
+  };
+}
+
+function showOverlay(){ overlay.classList.add('show'); }
+function closeOverlay(){ overlay.classList.remove('show'); modalBox.innerHTML=''; }
+overlay.addEventListener('click',(e)=>{ if(e.target===overlay) closeOverlay(); });
+
+datePicker.addEventListener('change', ()=>{
+  const [y,m,d] = datePicker.value.split('-').map(Number);
+  currentDate = new Date(y, m-1, d);
+  loadBookings();
+});
+document.getElementById('prevDay').addEventListener('click', ()=>{
+  currentDate.setDate(currentDate.getDate()-1);
+  syncPickerAndLoad();
+});
+document.getElementById('nextDay').addEventListener('click', ()=>{
+  currentDate.setDate(currentDate.getDate()+1);
+  syncPickerAndLoad();
+});
+document.getElementById('todayBtn').addEventListener('click', ()=>{
+  currentDate = new Date();
+  syncPickerAndLoad();
+});
+function syncPickerAndLoad(){
+  datePicker.value = fmtDate(currentDate);
+  loadBookings();
+}
+
+syncPickerAndLoad();
+</script>
+</body>
+</html>
