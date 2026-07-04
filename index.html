@@ -354,6 +354,7 @@ const PX_PER_MIN = 2; // 1분 = 2px
 const TOTAL_MIN = (END_HOUR - START_HOUR) * 60;
 const TIMELINE_WIDTH = TOTAL_MIN * PX_PER_MIN;
 const MAX_DURATION_MIN = 120; // 1일 최대 이용 시간(주의사항 기준)
+const NO_LIMIT_ROOMS = ['r4']; // 지하(스크린 사용)은 행사 진행 등으로 시간 제한 없음
 const SNAP_MIN = 10; // 클릭 시 추천 시간 반올림 단위
 
 function minToTime(min){
@@ -590,7 +591,7 @@ function openBookModal(roomId, suggestedStart){
       errBox.style.display='block';
       return;
     }
-    if(endMin - startMin > MAX_DURATION_MIN){
+    if(!NO_LIMIT_ROOMS.includes(roomId) && endMin - startMin > MAX_DURATION_MIN){
       errBox.textContent = '1일 최대 이용 시간은 2시간입니다.';
       errBox.style.display='block';
       return;
