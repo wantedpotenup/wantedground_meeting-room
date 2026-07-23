@@ -334,11 +334,11 @@
     margin:0;
   }
   .tile-grid{
-    max-width:1080px;
+    max-width:1180px;
     margin:40px auto 80px;
     padding:0 24px;
     display:grid;
-    grid-template-columns:repeat(3, 1fr);
+    grid-template-columns:repeat(4, 1fr);
     gap:20px;
   }
   .tile{
@@ -378,7 +378,7 @@
     font-size:13px;
     color:var(--muted);
   }
-  @media (max-width:860px){
+  @media (max-width:960px){
     .tile-grid{grid-template-columns:1fr 1fr;}
   }
   @media (max-width:640px){
@@ -446,6 +446,16 @@
       <div class="tile-title">포텐업 서약서</div>
       <div class="tile-sub">각종 서약서와 동의서를 작성해요</div>
     </button>
+    <button class="tile" data-target="study">
+      <div class="tile-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 4L3 8l9 4 9-4-9-4z"/>
+          <path d="M6 10.5V15c0 1 2.7 2.5 6 2.5s6-1.5 6-2.5v-4.5"/>
+        </svg>
+      </div>
+      <div class="tile-title">팀 스터디 신청</div>
+      <div class="tile-sub">함께할 팀 스터디를 신청해요</div>
+    </button>
   </div>
 </div>
 
@@ -458,6 +468,12 @@
 <div id="panel-pledge" class="view">
   <div class="vacation-wrap">
     <iframe class="vacation-frame" src="https://potenup-check-test.vercel.app/" title="포텐업 서약서"></iframe>
+  </div>
+</div>
+
+<div id="panel-study" class="view">
+  <div class="vacation-wrap">
+    <iframe class="vacation-frame" src="https://study-dun-phi.vercel.app/#/" title="팀 스터디 신청"></iframe>
   </div>
 </div>
 
