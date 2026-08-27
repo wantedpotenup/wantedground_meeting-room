@@ -76,20 +76,41 @@
     color:var(--ink);
   }
   .datebar button:hover{background:var(--accent-soft);}
-  .datebar input[type=date]{
+  .date-chip{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:6px;
     border:1px solid var(--line-strong);
     background:var(--card);
     border-radius:6px;
-    padding:6px 10px;
+    padding:6px 12px;
+    cursor:pointer;
+  }
+  .date-chip:hover{border-color:var(--accent);}
+  .date-display{
     font-size:14px;
     color:var(--ink);
-    font-family:inherit;
+  }
+  .date-cal-icon{
+    color:var(--muted);
+    flex-shrink:0;
+  }
+  .date-native-hidden{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    opacity:0;
+    border:none;
+    padding:0;
+    margin:0;
+    pointer-events:none;
   }
   .dow-label{
     font-size:13px;
     font-weight:600;
-    color:var(--accent);
-    min-width:20px;
+    color:var(--ink);
   }
   .datebar .today-btn{
     width:auto;
@@ -245,11 +266,68 @@
     width:100%;
     padding:8px 10px;
     border:1px solid var(--line-strong);
-    border-radius:6px;
+    border-radius:12px;
     font-size:14px;
     font-family:inherit;
     background:var(--paper);
     color:var(--ink);
+  }
+  .csel{
+    position:relative;
+  }
+  .csel-btn{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:10px 14px;
+    border:1px solid var(--line-strong);
+    border-radius:12px;
+    background:var(--paper);
+    font-size:14px;
+    font-family:inherit;
+    color:var(--ink);
+    cursor:pointer;
+    text-align:left;
+  }
+  .csel-btn.placeholder span{color:#9a9a9a;}
+  .csel-btn:hover{border-color:var(--accent);}
+  .csel.open .csel-btn{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .csel-chevron{
+    flex-shrink:0;
+    color:var(--muted);
+    transition:transform 0.15s ease;
+  }
+  .csel.open .csel-chevron{transform:rotate(180deg);}
+  .csel-panel{
+    position:absolute;
+    top:calc(100% + 6px);
+    left:0;
+    right:0;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:0 10px 28px rgba(20,30,60,0.14);
+    padding:6px;
+    display:none;
+    z-index:30;
+    max-height:240px;
+    overflow-y:auto;
+  }
+  .csel.open .csel-panel{display:block;}
+  .csel-option{
+    padding:10px 14px;
+    border-radius:10px;
+    font-size:14px;
+    color:var(--ink);
+    cursor:pointer;
+  }
+  .csel-option:hover{background:var(--accent-soft);}
+  .csel-option.selected{
+    background:var(--accent);
+    color:#fff;
+    font-weight:600;
   }
   .row2{
     display:flex;
@@ -264,7 +342,7 @@
   .btn{
     flex:1;
     padding:9px 0;
-    border-radius:6px;
+    border-radius:12px;
     border:1px solid var(--line-strong);
     background:var(--card);
     font-size:13px;
@@ -491,8 +569,14 @@
     </div>
     <div class="datebar">
       <button id="prevDay" aria-label="이전 날">‹</button>
-      <input type="date" id="datePicker">
-      <span id="dowLabel" class="dow-label"></span>
+      <div class="date-chip" id="dateChip">
+        <span id="dateDisplay" class="date-display"></span>
+        <span id="dowLabel" class="dow-label"></span>
+        <svg class="date-cal-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+        </svg>
+        <input type="date" id="datePicker" class="date-native-hidden" tabindex="-1">
+      </div>
       <button id="nextDay" aria-label="다음 날">›</button>
       <button class="today-btn" id="todayBtn">오늘</button>
     </div>
@@ -603,13 +687,21 @@ let bookings = []; // {id, roomId, startMin, endMin, name, track}
 
 const datePicker = document.getElementById('datePicker');
 const dowLabel = document.getElementById('dowLabel');
+const dateDisplay = document.getElementById('dateDisplay');
+const dateChip = document.getElementById('dateChip');
 const boardWrap = document.getElementById('boardWrap');
 const overlay = document.getElementById('overlay');
 const modalBox = document.getElementById('modalBox');
 
+dateChip.addEventListener('click', ()=>{
+  if(datePicker.showPicker){ datePicker.showPicker(); }
+  else{ datePicker.focus(); datePicker.click(); }
+});
+
 const DOW = ['일','월','화','수','목','금','토'];
 function updateDowLabel(){
   dowLabel.textContent = '(' + DOW[currentDate.getDay()] + ')';
+  dateDisplay.textContent = fmtDate(currentDate);
 }
 
 async function loadBookings(){
@@ -745,17 +837,22 @@ function openBookModal(roomId, suggestedStart, existing){
   const isEdit = !!existing;
   const startVal = isEdit ? existing.startMin : suggestedStart;
   const endVal = isEdit ? existing.endMin : Math.min(suggestedStart + 60, END_HOUR*60);
-  const trackOpts = TRACK_OPTIONS.map(t=>`<option value="${t}" ${existing && existing.track===t ? 'selected':''}>${t}</option>`).join('');
 
   modalBox.innerHTML = `
     <h2>${room.name} ${isEdit ? '예약 수정' : '예약'}</h2>
     <div class="meta">${fmtDate(currentDate)}</div>
     <div class="field">
-      <label for="bkTrack">과정</label>
-      <select id="bkTrack">
-        <option value="" ${!existing || !existing.track ? 'selected':''} disabled>선택하세요</option>
-        ${trackOpts}
-      </select>
+      <label>과정</label>
+      <div class="csel" id="bkTrackSel">
+        <button type="button" class="csel-btn ${(!existing || !existing.track) ? 'placeholder' : ''}" id="bkTrackBtn">
+          <span id="bkTrackLabel">${existing && existing.track ? existing.track : '선택하세요'}</span>
+          <svg class="csel-chevron" width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7l5 5 5-5"/></svg>
+        </button>
+        <div class="csel-panel" id="bkTrackPanel">
+          ${TRACK_OPTIONS.map(t=>`<div class="csel-option ${existing && existing.track===t ? 'selected':''}" data-value="${t}">${t}</div>`).join('')}
+        </div>
+      </div>
+      <input type="hidden" id="bkTrack" value="${existing && existing.track ? existing.track : ''}">
     </div>
     <div class="field">
       <label for="bkName">예약자 이름</label>
@@ -778,6 +875,31 @@ function openBookModal(roomId, suggestedStart, existing){
     </div>
   `;
   showOverlay();
+
+  const trackSel = document.getElementById('bkTrackSel');
+  const trackBtn = document.getElementById('bkTrackBtn');
+  const trackPanel = document.getElementById('bkTrackPanel');
+  const trackHidden = document.getElementById('bkTrack');
+  const trackLabel = document.getElementById('bkTrackLabel');
+  trackBtn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    trackSel.classList.toggle('open');
+  });
+  trackPanel.querySelectorAll('.csel-option').forEach(opt=>{
+    opt.addEventListener('click', ()=>{
+      const val = opt.dataset.value;
+      trackHidden.value = val;
+      trackLabel.textContent = val;
+      trackBtn.classList.remove('placeholder');
+      trackPanel.querySelectorAll('.csel-option').forEach(o=>o.classList.remove('selected'));
+      opt.classList.add('selected');
+      trackSel.classList.remove('open');
+    });
+  });
+  document.addEventListener('click', (e)=>{
+    if(trackSel && !trackSel.contains(e.target)) trackSel.classList.remove('open');
+  });
+
   document.getElementById('bkCancel').onclick = closeOverlay;
   document.getElementById('bkSubmit').onclick = async ()=>{
     const errBox = document.getElementById('bkErr');
