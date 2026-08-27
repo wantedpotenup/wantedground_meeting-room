@@ -85,6 +85,12 @@
     color:var(--ink);
     font-family:inherit;
   }
+  .dow-label{
+    font-size:13px;
+    font-weight:600;
+    color:var(--accent);
+    min-width:20px;
+  }
   .datebar .today-btn{
     width:auto;
     padding:0 14px;
@@ -486,6 +492,7 @@
     <div class="datebar">
       <button id="prevDay" aria-label="이전 날">‹</button>
       <input type="date" id="datePicker">
+      <span id="dowLabel" class="dow-label"></span>
       <button id="nextDay" aria-label="다음 날">›</button>
       <button class="today-btn" id="todayBtn">오늘</button>
     </div>
@@ -504,7 +511,7 @@
   </div>
 
   <div class="board-wrap" id="boardWrap"></div>
-  <div class="empty-note">06:00 ~ 24:00 · 빈 칸을 클릭한 뒤 원하는 시작/종료 시간을 직접 입력해서 예약할 수 있어요</div>
+  <div class="empty-note">09:00 ~ 24:00 · 빈 칸을 클릭한 뒤 원하는 시작/종료 시간을 직접 입력해서 예약할 수 있어요</div>
 </div>
 </div>
 
@@ -533,7 +540,7 @@ const ROOMS = [
   {id:'r4', name:'지하(스크린 사용)', color:'r4', bg:'r4-bg'},
 ];
 
-const START_HOUR = 6;
+const START_HOUR = 9;
 const END_HOUR = 24;
 const PX_PER_MIN = 2; // 1분 = 2px
 const TOTAL_MIN = (END_HOUR - START_HOUR) * 60;
@@ -592,12 +599,18 @@ async function sbFetch(path, options={}){
 }
 
 let currentDate = new Date();
-let bookings = []; // {id, roomId, startMin, endMin, name, pin}
+let bookings = []; // {id, roomId, startMin, endMin, name, track}
 
 const datePicker = document.getElementById('datePicker');
+const dowLabel = document.getElementById('dowLabel');
 const boardWrap = document.getElementById('boardWrap');
 const overlay = document.getElementById('overlay');
 const modalBox = document.getElementById('modalBox');
+
+const DOW = ['일','월','화','수','목','금','토'];
+function updateDowLabel(){
+  dowLabel.textContent = '(' + DOW[currentDate.getDay()] + ')';
+}
 
 async function loadBookings(){
   renderBoard();
@@ -610,7 +623,7 @@ async function loadBookings(){
       startMin: r.start_min,
       endMin: r.end_min,
       name: r.name,
-      pin: r.pin || ''
+      track: r.track || ''
     }));
   }catch(e){
     bookings = [];
@@ -629,9 +642,20 @@ async function insertBookingRemote(booking){
     start_min: booking.startMin,
     end_min: booking.endMin,
     name: booking.name,
-    pin: booking.pin || null
+    track: booking.track || null
   };
   await sbFetch('bookings', {method:'POST', body: JSON.stringify(payload)});
+}
+
+async function updateBookingRemote(id, booking){
+  const payload = {
+    room_id: booking.roomId,
+    start_min: booking.startMin,
+    end_min: booking.endMin,
+    name: booking.name,
+    track: booking.track || null
+  };
+  await sbFetch(`bookings?id=eq.${id}`, {method:'PATCH', body: JSON.stringify(payload), prefer:'return=minimal'});
 }
 
 async function deleteBookingRemote(id){
@@ -673,8 +697,8 @@ function renderBoard(){
     bookings.filter(b=>b.roomId===r.id).forEach(b=>{
       const left = (b.startMin - START_HOUR*60) * PX_PER_MIN;
       const width = (b.endMin - b.startMin) * PX_PER_MIN;
-      tracksHtml += `<div class="booking" style="left:${left}px;width:${Math.max(width-2,40)}px;background:var(--${r.bg});color:var(--${r.color});" data-action="cancel" data-id="${b.id}">
-        <div class="b-name">${escapeHtml(b.name)}</div>
+      tracksHtml += `<div class="booking" style="left:${left}px;width:${Math.max(width-2,40)}px;background:var(--${r.bg});color:var(--${r.color});" data-action="detail" data-id="${b.id}">
+        <div class="b-name">${b.track ? '['+escapeHtml(b.track)+'] ' : ''}${escapeHtml(b.name)}</div>
         <div class="b-time">${minToTime(b.startMin)} - ${minToTime(b.endMin)}</div>
       </div>`;
     });
@@ -697,10 +721,10 @@ function renderBoard(){
       openBookModal(track.dataset.room, clickMin);
     });
   });
-  boardWrap.querySelectorAll('[data-action="cancel"]').forEach(el=>{
+  boardWrap.querySelectorAll('[data-action="detail"]').forEach(el=>{
     el.addEventListener('click', (e)=>{
       e.stopPropagation();
-      openCancelModal(el.dataset.id);
+      openDetailModal(el.dataset.id);
     });
   });
 }
@@ -713,35 +737,44 @@ function hasOverlap(roomId, startMin, endMin, excludeId){
   });
 }
 
-function openBookModal(roomId, suggestedStart){
+const TRACK_OPTIONS = ['AI 트랙', '게임 트랙', '백엔드 트랙', '커리어캠프', '강사', '운영진'];
+
+function openBookModal(roomId, suggestedStart, existing){
   if(isWeekend(currentDate)) return;
   const room = ROOMS.find(r=>r.id===roomId);
-  const defaultEnd = Math.min(suggestedStart + 60, END_HOUR*60);
+  const isEdit = !!existing;
+  const startVal = isEdit ? existing.startMin : suggestedStart;
+  const endVal = isEdit ? existing.endMin : Math.min(suggestedStart + 60, END_HOUR*60);
+  const trackOpts = TRACK_OPTIONS.map(t=>`<option value="${t}" ${existing && existing.track===t ? 'selected':''}>${t}</option>`).join('');
+
   modalBox.innerHTML = `
-    <h2>${room.name} 예약</h2>
+    <h2>${room.name} ${isEdit ? '예약 수정' : '예약'}</h2>
     <div class="meta">${fmtDate(currentDate)}</div>
     <div class="field">
+      <label for="bkTrack">과정</label>
+      <select id="bkTrack">
+        <option value="" ${!existing || !existing.track ? 'selected':''} disabled>선택하세요</option>
+        ${trackOpts}
+      </select>
+    </div>
+    <div class="field">
       <label for="bkName">예약자 이름</label>
-      <input id="bkName" type="text" placeholder="이름을 입력하세요" maxlength="20">
+      <input id="bkName" type="text" placeholder="이름을 입력하세요" maxlength="20" value="${isEdit ? escapeHtml(existing.name) : ''}">
     </div>
     <div class="row2">
       <div class="field">
         <label for="bkStart">시작 시간 (예: 09:20)</label>
-        <input id="bkStart" type="text" inputmode="numeric" placeholder="00:00" value="${minToTime(suggestedStart)}" maxlength="5">
+        <input id="bkStart" type="text" inputmode="numeric" placeholder="00:00" value="${minToTime(startVal)}" maxlength="5">
       </div>
       <div class="field">
         <label for="bkEnd">종료 시간 (예: 10:40)</label>
-        <input id="bkEnd" type="text" inputmode="numeric" placeholder="00:00" value="${minToTime(defaultEnd)}" maxlength="5">
+        <input id="bkEnd" type="text" inputmode="numeric" placeholder="00:00" value="${minToTime(endVal)}" maxlength="5">
       </div>
-    </div>
-    <div class="field">
-      <label for="bkPin">취소 비밀번호 (선택, 4자리)</label>
-      <input id="bkPin" type="text" inputmode="numeric" placeholder="설정하면 취소할 때 필요해요" maxlength="4">
     </div>
     <div class="err" id="bkErr"></div>
     <div class="modal-actions">
       <button class="btn" id="bkCancel">취소</button>
-      <button class="btn primary" id="bkSubmit">예약하기</button>
+      <button class="btn primary" id="bkSubmit">${isEdit ? '수정 완료' : '예약하기'}</button>
     </div>
   `;
   showOverlay();
@@ -749,11 +782,16 @@ function openBookModal(roomId, suggestedStart){
   document.getElementById('bkSubmit').onclick = async ()=>{
     const errBox = document.getElementById('bkErr');
     errBox.style.display='none';
+    const track = document.getElementById('bkTrack').value;
     const name = document.getElementById('bkName').value.trim();
     const startStr = document.getElementById('bkStart').value.trim();
     const endStr = document.getElementById('bkEnd').value.trim();
-    const pin = document.getElementById('bkPin').value.trim();
 
+    if(!track){
+      errBox.textContent = '과정을 선택해주세요.';
+      errBox.style.display='block';
+      return;
+    }
     if(!name){
       errBox.textContent = '예약자 이름을 입력해주세요.';
       errBox.style.display='block';
@@ -781,21 +819,25 @@ function openBookModal(roomId, suggestedStart){
       errBox.style.display='block';
       return;
     }
-    if(hasOverlap(roomId, startMin, endMin)){
+    if(hasOverlap(roomId, startMin, endMin, isEdit ? existing.id : null)){
       errBox.textContent = '이미 예약된 시간과 겹쳐요. 다른 시간을 선택해주세요.';
       errBox.style.display='block';
       return;
     }
 
-    const newBooking = {
-      id: Date.now().toString(36)+Math.random().toString(36).slice(2,6),
-      roomId, startMin, endMin, name, pin: pin || ''
-    };
     const submitBtn = document.getElementById('bkSubmit');
     submitBtn.disabled = true;
-    submitBtn.textContent = '예약 중...';
+    submitBtn.textContent = isEdit ? '수정 중...' : '예약 중...';
     try{
-      await insertBookingRemote(newBooking);
+      if(isEdit){
+        await updateBookingRemote(existing.id, { roomId, startMin, endMin, name, track });
+      }else{
+        const newBooking = {
+          id: Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+          roomId, startMin, endMin, name, track
+        };
+        await insertBookingRemote(newBooking);
+      }
       closeOverlay();
       await loadBookings();
     }catch(err){
@@ -803,46 +845,39 @@ function openBookModal(roomId, suggestedStart){
       errBox.textContent = '저장에 실패했어요. 인터넷 연결을 확인하고 다시 시도해주세요.';
       errBox.style.display='block';
       submitBtn.disabled = false;
-      submitBtn.textContent = '예약하기';
+      submitBtn.textContent = isEdit ? '수정 완료' : '예약하기';
     }
   };
 }
 
-function openCancelModal(id){
+function openDetailModal(id){
   const b = bookings.find(x=>x.id===id);
   if(!b) return;
   const room = ROOMS.find(r=>r.id===b.roomId);
-  const hasPin = !!b.pin;
   modalBox.innerHTML = `
-    <h2>예약 취소</h2>
+    <h2>예약 정보</h2>
     <div class="meta">${room.name} · ${minToTime(b.startMin)} - ${minToTime(b.endMin)}</div>
+    <div class="field">
+      <label>과정</label>
+      <div style="font-size:14px;">${escapeHtml(b.track || '-')}</div>
+    </div>
     <div class="field">
       <label>예약자</label>
       <div style="font-size:14px;">${escapeHtml(b.name)}</div>
     </div>
-    ${hasPin ? `
-    <div class="field">
-      <label for="ccPin">취소 비밀번호</label>
-      <input id="ccPin" type="text" inputmode="numeric" placeholder="예약할 때 설정한 4자리" maxlength="4">
-    </div>
-    <div class="err" id="ccErr">비밀번호가 일치하지 않아요.</div>
-    ` : ''}
     <div class="modal-actions">
-      <button class="btn" id="ccClose">닫기</button>
-      <button class="btn danger" id="ccDelete">예약 취소</button>
+      <button class="btn" id="dtClose">닫기</button>
+      <button class="btn" id="dtEdit">수정</button>
+      <button class="btn danger" id="dtDelete">예약 취소</button>
     </div>
   `;
   showOverlay();
-  document.getElementById('ccClose').onclick = closeOverlay;
-  document.getElementById('ccDelete').onclick = async ()=>{
-    if(hasPin){
-      const input = document.getElementById('ccPin').value.trim();
-      if(input !== b.pin){
-        document.getElementById('ccErr').style.display='block';
-        return;
-      }
-    }
-    const deleteBtn = document.getElementById('ccDelete');
+  document.getElementById('dtClose').onclick = closeOverlay;
+  document.getElementById('dtEdit').onclick = ()=>{
+    openBookModal(b.roomId, b.startMin, b);
+  };
+  document.getElementById('dtDelete').onclick = async ()=>{
+    const deleteBtn = document.getElementById('dtDelete');
     deleteBtn.disabled = true;
     deleteBtn.textContent = '취소 중...';
     try{
@@ -865,6 +900,7 @@ overlay.addEventListener('click',(e)=>{ if(e.target===overlay) closeOverlay(); }
 datePicker.addEventListener('change', ()=>{
   const [y,m,d] = datePicker.value.split('-').map(Number);
   currentDate = new Date(y, m-1, d);
+  updateDowLabel();
   loadBookings();
 });
 document.getElementById('prevDay').addEventListener('click', ()=>{
@@ -881,6 +917,7 @@ document.getElementById('todayBtn').addEventListener('click', ()=>{
 });
 function syncPickerAndLoad(){
   datePicker.value = fmtDate(currentDate);
+  updateDowLabel();
   loadBookings();
 }
 
