@@ -324,13 +324,21 @@
 <script>
 /* ===== 화면 전환 (주소 #/meeting 처럼 남아서 새로고침해도 그 화면 유지) ===== */
 const VIEWS = ['home','vacation','meeting','pledge','study'];
+let currentView = null;
 function showView(name){
   if(!VIEWS.includes(name)) name = 'home';
+  const entering = currentView !== name;
+  currentView = name;
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   const target = document.getElementById('view-'+name);
   target.classList.add('active');
+  // 다른 화면에서 들어올 때는 하위 앱을 항상 첫 화면부터 다시 열어요.
+  // (예전에는 서약서 작성 화면에 있다가 나갔다 오면 목록 대신 그 작성 화면이 그대로 남아 있었어요)
   const frame = target.querySelector('iframe[data-src]');
-  if(frame && !frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.src);
+  if(frame && (entering || !frame.getAttribute('src'))){
+    frame.style.height = '';
+    frame.setAttribute('src', frame.dataset.src);
+  }
   document.querySelectorAll('.gnb-link').forEach(b=>{
     const on = b.dataset.view===name;
     b.classList.toggle('active', on);
@@ -354,6 +362,10 @@ window.addEventListener('message', e=>{
     frame.style.height = Math.max(600, Math.ceil(Number(e.data.height))) + 'px';
   }else if(e.data.type==='wg-scroll-top'){
     window.scrollTo(0,0);
+  }else if(e.data.type==='wg-scroll-to' && Number.isFinite(Number(e.data.y))){
+    // 하위 앱이 띄운 팝업이 보이도록 그 위치로 스크롤
+    const y = frame.getBoundingClientRect().top + window.scrollY + Number(e.data.y) - 80;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
   }
 });
 </script>
